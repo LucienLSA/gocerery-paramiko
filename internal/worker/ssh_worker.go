@@ -16,10 +16,11 @@ import (
 )
 
 type Runner struct {
-	client     *gocelery.CeleryClient
-	taskName   string
-	scriptPath string
-	timeout    int
+	client      *gocelery.CeleryClient
+	taskName    string
+	scriptPath  string
+	timeout     int
+	concurrency int
 }
 
 func Run(cfg *config.Config) error {
@@ -45,10 +46,11 @@ func Run(cfg *config.Config) error {
 	}
 
 	runner := &Runner{
-		client:     client,
-		taskName:   taskName,
-		scriptPath: filepath.Clean(cfg.Executor.Script),
-		timeout:    cfg.Executor.TimeoutSeconds,
+		client:      client,
+		taskName:    taskName,
+		scriptPath:  filepath.Clean(cfg.Executor.Script),
+		timeout:     cfg.Executor.TimeoutSeconds,
+		concurrency: cfg.Executor.Concurrency,
 	}
 
 	client.Register(taskName, runner.execute)
@@ -58,7 +60,7 @@ func Run(cfg *config.Config) error {
 	return nil
 }
 
-func (r *Runner) execute(payload map[string]interface{}) (map[string]interface{}, error) {
+func (r *Runner) execute(payload map[string]interface{}) (interface{}, error) {
 	task, err := parsePayload(payload)
 	if err != nil {
 		return nil, err
@@ -76,27 +78,35 @@ func (r *Runner) execute(payload map[string]interface{}) (map[string]interface{}
 		"user":     task.ProxyUser,
 		"password": task.ProxyPassword,
 	}
-	targets := []map[string]interface{}{
-		{
-			"name":     task.TargetHost,
-			"host":     task.TargetHost,
-			"port":     task.TargetPort,
-			"user":     task.TargetUser,
-			"password": task.TargetPassword,
-		},
+	targets := make([]map[string]interface{}, 0, len(task.Targets))
+	for _, t := range task.Targets {
+		targets = append(targets, map[string]interface{}{
+			"name":     t.Name,
+			"host":     t.Host,
+			"port":     t.Port,
+			"user":     t.User,
+			"password": t.Password,
+		})
 	}
-	commands := []string{task.Command}
 
 	bastionJSON, _ := json.Marshal(bastion)
 	targetsJSON, _ := json.Marshal(targets)
-	commandsJSON, _ := json.Marshal(commands)
+	commandsJSON, _ := json.Marshal(task.Commands)
+
+	concurrency := r.concurrency
+	if concurrency <= 0 {
+		concurrency = 1
+	}
+	if concurrency > len(targets) && len(targets) > 0 {
+		concurrency = len(targets)
+	}
 
 	args := []string{
 		r.scriptPath,
 		"--bastion", string(bastionJSON),
 		"--targets", string(targetsJSON),
 		"--commands", string(commandsJSON),
-		"--concurrency", "1",
+		"--concurrency", strconv.Itoa(concurrency),
 		"--timeout", strconv.Itoa(timeout),
 	}
 
@@ -107,12 +117,16 @@ func (r *Runner) execute(payload map[string]interface{}) (map[string]interface{}
 	cmd.Stderr = &stderr
 
 	if err := cmd.Run(); err != nil {
-		return map[string]interface{}{
-			"success":   false,
-			"stdout":    stdout.String(),
-			"stderr":    stderr.String(),
-			"exit_code": 1,
-			"error":     err.Error(),
+		return []map[string]interface{}{
+			{
+				"name":      "",
+				"host":      "",
+				"success":   false,
+				"stdout":    stdout.String(),
+				"stderr":    stderr.String(),
+				"exit_code": 1,
+				"error":     err.Error(),
+			},
 		}, nil
 	}
 
@@ -124,21 +138,26 @@ func (r *Runner) execute(payload map[string]interface{}) (map[string]interface{}
 		return nil, errors.New("executor returned empty result")
 	}
 
-	return results[0], nil
+	return results, nil
 }
 
 type taskPayload struct {
-	ProxyHost      string
-	ProxyPort      int
-	ProxyUser      string
-	ProxyPassword  string
-	TargetHost     string
-	TargetPort     int
-	TargetUser     string
-	TargetPassword string
-	Command        string
-	Timeout        int
-	SaveLog        bool
+	ProxyHost     string
+	ProxyPort     int
+	ProxyUser     string
+	ProxyPassword string
+	Targets       []targetPayload
+	Commands      []string
+	Timeout       int
+	SaveLog       bool
+}
+
+type targetPayload struct {
+	Name     string
+	Host     string
+	Port     int
+	User     string
+	Password string
 }
 
 func parsePayload(data map[string]interface{}) (*taskPayload, error) {
@@ -165,30 +184,106 @@ func parsePayload(data map[string]interface{}) (*taskPayload, error) {
 		return 0
 	}
 
+	rawTargets, ok := data["targets"]
+	if !ok {
+		return nil, errors.New("targets is required")
+	}
+	targets, err := parseTargets(rawTargets)
+	if err != nil {
+		return nil, err
+	}
+	rawCommands, ok := data["commands"]
+	if !ok {
+		return nil, errors.New("commands is required")
+	}
+	commands, err := parseCommands(rawCommands)
+	if err != nil {
+		return nil, err
+	}
+
 	task := &taskPayload{
-		ProxyHost:      getString("proxy_host"),
-		ProxyPort:      normalizePort(getInt("proxy_port")),
-		ProxyUser:      getString("proxy_user"),
-		ProxyPassword:  getString("proxy_password"),
-		TargetHost:     getString("target_host"),
-		TargetPort:     normalizePort(getInt("target_port")),
-		TargetUser:     getString("target_user"),
-		TargetPassword: getString("target_password"),
-		Command:        getString("command"),
-		Timeout:        getInt("timeout"),
+		ProxyHost:     getString("proxy_host"),
+		ProxyPort:     normalizePort(getInt("proxy_port")),
+		ProxyUser:     getString("proxy_user"),
+		ProxyPassword: getString("proxy_password"),
+		Targets:       targets,
+		Commands:      commands,
+		Timeout:       getInt("timeout"),
 	}
 
 	if task.ProxyHost == "" || task.ProxyUser == "" || task.ProxyPassword == "" {
 		return nil, errors.New("proxy credentials are required")
 	}
-	if task.TargetHost == "" || task.TargetUser == "" || task.TargetPassword == "" {
-		return nil, errors.New("target credentials are required")
+	if len(task.Targets) == 0 {
+		return nil, errors.New("targets cannot be empty")
 	}
-	if task.Command == "" {
-		return nil, errors.New("command cannot be empty")
+	if len(task.Commands) == 0 {
+		return nil, errors.New("commands cannot be empty")
 	}
 
 	return task, nil
+}
+
+func parseTargets(raw interface{}) ([]targetPayload, error) {
+	targetSlice, ok := raw.([]interface{})
+	if !ok {
+		return nil, errors.New("targets must be an array")
+	}
+	result := make([]targetPayload, 0, len(targetSlice))
+	for idx, item := range targetSlice {
+		obj, ok := item.(map[string]interface{})
+		if !ok {
+			return nil, fmt.Errorf("target[%d] must be object", idx)
+		}
+		name := fmt.Sprintf("%v", obj["name"])
+		host := fmt.Sprintf("%v", obj["host"])
+		user := fmt.Sprintf("%v", obj["user"])
+		password := fmt.Sprintf("%v", obj["password"])
+		port := 0
+		if v, ok := obj["port"]; ok {
+			switch p := v.(type) {
+			case float64:
+				port = int(p)
+			case int:
+				port = p
+			case string:
+				if parsed, err := strconv.Atoi(p); err == nil {
+					port = parsed
+				}
+			}
+		}
+		port = normalizePort(port)
+		if host == "" || user == "" || password == "" {
+			return nil, fmt.Errorf("target[%d] host/user/password are required", idx)
+		}
+		result = append(result, targetPayload{
+			Name:     name,
+			Host:     host,
+			Port:     port,
+			User:     user,
+			Password: password,
+		})
+	}
+	return result, nil
+}
+
+func parseCommands(raw interface{}) ([]string, error) {
+	switch val := raw.(type) {
+	case []interface{}:
+		cmds := make([]string, 0, len(val))
+		for idx, item := range val {
+			str := fmt.Sprintf("%v", item)
+			if str == "" {
+				return nil, fmt.Errorf("commands[%d] cannot be empty", idx)
+			}
+			cmds = append(cmds, str)
+		}
+		return cmds, nil
+	case []string:
+		return val, nil
+	default:
+		return nil, errors.New("commands must be an array")
+	}
 }
 
 func normalizePort(port int) int {

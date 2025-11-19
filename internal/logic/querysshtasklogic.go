@@ -57,13 +57,16 @@ func (l *QuerySshTaskLogic) QuerySshTask(req *types.SshTaskStatusRequest) (*type
 		if marshalErr != nil {
 			return nil, fmt.Errorf("marshal task result: %w", marshalErr)
 		}
-		var hostResult types.HostResult
-		if err := json.Unmarshal(resultBytes, &hostResult); err != nil {
+		var hostResults []types.HostResult
+		if err := json.Unmarshal(resultBytes, &hostResults); err != nil {
 			return nil, fmt.Errorf("unmarshal task result: %w", err)
 		}
-		resp.Result = &hostResult
-		if !hostResult.Success {
-			resp.Error = hostResult.Error
+		resp.Results = hostResults
+		for _, item := range hostResults {
+			if !item.Success {
+				resp.Error = item.Error
+				break
+			}
 		}
 	}
 

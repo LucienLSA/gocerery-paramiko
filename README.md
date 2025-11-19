@@ -82,9 +82,31 @@ go run cmd/worker/main.go -f etc/gocerery-api.yaml
 curl -X POST http://localhost:8888/api/ssh/task \
   -H "Content-Type: application/json" \
   -d '{
-        "commands": ["hostname", "uptime"],
-        "targets": ["web-server"],
-        "timeout_sec": 90
+        "proxy_host": "111.200.213.14",
+        "proxy_port": 63525,
+        "proxy_user": "h3c",
+        "proxy_password": "******",
+        "targets": [
+          {
+            "name": "web-1",
+            "host": "172.171.2.133",
+            "port": 22,
+            "user": "infrawaves",
+            "password": "******"
+          },
+          {
+            "name": "web-2",
+            "host": "172.171.2.134",
+            "port": 22,
+            "user": "infrawaves",
+            "password": "******"
+          }
+        ],
+        "commands": [
+          "uname -a",
+          "bash /home/infrawaves/test/test.sh"
+        ],
+        "timeout": 90
       }'
 ```
 
@@ -110,18 +132,29 @@ curl http://localhost:8888/api/ssh/task/c146c8d5-9091-42e5-a1d6-511105db1c3b
 {
   "task_id": "c146c8d5-9091-42e5-a1d6-511105db1c3b",
   "status": "SUCCESS",
-  "result": {
-    "name": "172.171.2.133",
-    "host": "172.171.2.133",
-    "success": true,
-    "stdout": "Linux ...",
-    "stderr": "",
-    "exit_code": 0
-  }
+  "results": [
+    {
+      "name": "web-1",
+      "host": "172.171.2.133",
+      "success": true,
+      "stdout": "Linux ...",
+      "stderr": "",
+      "exit_code": 0
+    },
+    {
+      "name": "web-2",
+      "host": "172.171.2.134",
+      "success": false,
+      "stdout": "",
+      "stderr": "bash: line 1: test.sh: No such file or directory",
+      "exit_code": 127,
+      "error": "CommandError: ..."
+    }
+  ]
 }
 ```
 
-若执行失败，`result.success` 为 `false` 且 `error` 字段包含失败原因。
+若某台机器执行失败，其 `success` 为 `false` 且 `error` 字段包含失败原因，其它机器的结果不会受影响。
 
 ### 常见问题
 

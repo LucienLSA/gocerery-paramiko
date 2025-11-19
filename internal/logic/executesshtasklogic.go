@@ -41,18 +41,20 @@ func (l *ExecuteSshTaskLogic) ExecuteSshTask(req *types.SshTaskRequest) (*types.
 		taskName = "tasks.execute_ssh"
 	}
 
+	targets, err := buildTargetPayloads(req.Targets)
+	if err != nil {
+		return nil, err
+	}
+
 	payload := map[string]interface{}{
-		"proxy_host":      req.ProxyHost,
-		"proxy_port":      normalizePort(req.ProxyPort),
-		"proxy_user":      req.ProxyUser,
-		"proxy_password":  req.ProxyPassword,
-		"target_host":     req.TargetHost,
-		"target_port":     normalizePort(req.TargetPort),
-		"target_user":     req.TargetUser,
-		"target_password": req.TargetPassword,
-		"command":         req.Command,
-		"timeout":         normalizeTimeout(req.Timeout, l.svcCtx.Config.Executor.TimeoutSeconds),
-		"save_log":        req.SaveLog,
+		"proxy_host":     req.ProxyHost,
+		"proxy_port":     normalizePort(req.ProxyPort),
+		"proxy_user":     req.ProxyUser,
+		"proxy_password": req.ProxyPassword,
+		"targets":        targets,
+		"commands":       req.Commands,
+		"timeout":        normalizeTimeout(req.Timeout, l.svcCtx.Config.Executor.TimeoutSeconds),
+		"save_log":       req.SaveLog,
 	}
 
 	asyncResult, err := l.svcCtx.CeleryClient.DelayKwargs(taskName, payload)
@@ -60,7 +62,7 @@ func (l *ExecuteSshTaskLogic) ExecuteSshTask(req *types.SshTaskRequest) (*types.
 		return nil, fmt.Errorf("submit task to celery: %w", err)
 	}
 
-	l.Logger.Infof("submitted ssh task %s for target %s", asyncResult.TaskID, req.TargetHost)
+	l.Logger.Infof("submitted ssh task %s for %d targets", asyncResult.TaskID, len(targets))
 
 	return &types.SshTaskResponse{
 		TaskID:  asyncResult.TaskID,
@@ -73,12 +75,31 @@ func validateTaskRequest(req *types.SshTaskRequest) error {
 	switch {
 	case req.ProxyHost == "" || req.ProxyUser == "" || req.ProxyPassword == "":
 		return errors.New("proxy host/user/password are required")
-	case req.TargetHost == "" || req.TargetUser == "" || req.TargetPassword == "":
-		return errors.New("target host/user/password are required")
-	case req.Command == "":
-		return errors.New("command cannot be empty")
+	case len(req.Targets) == 0:
+		return errors.New("targets cannot be empty")
+	case len(req.Commands) == 0:
+		return errors.New("commands cannot be empty")
+	}
+	for idx, t := range req.Targets {
+		if t.Host == "" || t.User == "" || t.Password == "" {
+			return fmt.Errorf("target[%d] host/user/password are required", idx)
+		}
 	}
 	return nil
+}
+
+func buildTargetPayloads(targets []types.TargetCredential) ([]map[string]interface{}, error) {
+	payloads := make([]map[string]interface{}, 0, len(targets))
+	for _, t := range targets {
+		payloads = append(payloads, map[string]interface{}{
+			"name":     t.Name,
+			"host":     t.Host,
+			"port":     normalizePort(t.Port),
+			"user":     t.User,
+			"password": t.Password,
+		})
+	}
+	return payloads, nil
 }
 
 func normalizePort(port int) int {

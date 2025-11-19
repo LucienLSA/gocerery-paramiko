@@ -4,17 +4,22 @@
 package types
 
 type SshTaskRequest struct {
-	ProxyHost      string `json:"proxy_host"`
-	ProxyPort      int    `json:"proxy_port"`
-	ProxyUser      string `json:"proxy_user"`
-	ProxyPassword  string `json:"proxy_password"`
-	TargetHost     string `json:"target_host"`
-	TargetPort     int    `json:"target_port"`
-	TargetUser     string `json:"target_user"`
-	TargetPassword string `json:"target_password"`
-	Command        string `json:"command"`
-	Timeout        int    `json:"timeout,omitempty"`
-	SaveLog        bool   `json:"save_log,omitempty"`
+	ProxyHost     string             `json:"proxy_host"`
+	ProxyPort     int                `json:"proxy_port"`
+	ProxyUser     string             `json:"proxy_user"`
+	ProxyPassword string             `json:"proxy_password"`
+	Targets       []TargetCredential `json:"targets"`
+	Commands      []string           `json:"commands"`
+	Timeout       int                `json:"timeout,omitempty"`
+	SaveLog       bool               `json:"save_log,omitempty"`
+}
+
+type TargetCredential struct {
+	Name     string `json:"name"`
+	Host     string `json:"host"`
+	Port     int    `json:"port"`
+	User     string `json:"user"`
+	Password string `json:"password"`
 }
 
 type SshTaskResponse struct {
@@ -38,8 +43,8 @@ type HostResult struct {
 }
 
 type SshTaskStatusResponse struct {
-	TaskID string      `json:"task_id"`
-	Status string      `json:"status"`
-	Result *HostResult `json:"result,omitempty"`
-	Error  string      `json:"error,omitempty"`
+	TaskID  string       `json:"task_id"`
+	Status  string       `json:"status"`
+	Results []HostResult `json:"results,omitempty"`
+	Error   string       `json:"error,omitempty"`
 }
