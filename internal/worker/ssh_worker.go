@@ -2,13 +2,18 @@ package worker
 
 import (
 	"bytes"
+	"context"
 	"encoding/json"
 	"errors"
 	"fmt"
 	"log"
+	"os"
 	"os/exec"
+	"os/signal"
 	"path/filepath"
 	"strconv"
+	"sync"
+	"syscall"
 
 	"gocerery/internal/config"
 
@@ -23,11 +28,37 @@ type Runner struct {
 	concurrency int
 }
 
+// SshTask 实现 CeleryTask 接口，用于处理 kwargs
+type SshTask struct {
+	runner  *Runner
+	mu      sync.Mutex
+	payload map[string]interface{}
+}
+
+// ParseKwargs 解析 kwargs 参数
+func (t *SshTask) ParseKwargs(kwargs map[string]interface{}) error {
+	t.mu.Lock()
+	defer t.mu.Unlock()
+	t.payload = kwargs
+	return nil
+}
+
+// RunTask 执行任务
+func (t *SshTask) RunTask() (interface{}, error) {
+	t.mu.Lock()
+	payload := t.payload
+	t.mu.Unlock()
+	return t.runner.execute(payload)
+}
+
 func Run(cfg *config.Config) error {
+	log.Printf("[WORKER] initializing Celery worker...")
 	if cfg.Celery.Broker == "" || cfg.Celery.Backend == "" {
 		return errors.New("celery broker/backend not configured")
 	}
 
+	log.Printf("[WORKER] connecting to broker: %s", cfg.Celery.Broker)
+	log.Printf("[WORKER] connecting to backend: %s", cfg.Celery.Backend)
 	broker := gocelery.NewRedisCeleryBroker(cfg.Celery.Broker)
 	backend := gocelery.NewRedisCeleryBackend(cfg.Celery.Backend)
 	workers := cfg.Celery.Workers
@@ -35,6 +66,7 @@ func Run(cfg *config.Config) error {
 		workers = 1
 	}
 
+	log.Printf("[WORKER] creating Celery client with %d workers...", workers)
 	client, err := gocelery.NewCeleryClient(broker, backend, workers)
 	if err != nil {
 		return fmt.Errorf("create celery client: %w", err)
@@ -45,32 +77,68 @@ func Run(cfg *config.Config) error {
 		taskName = "tasks.execute_ssh"
 	}
 
+	scriptPath := filepath.Clean(cfg.Executor.Script)
 	runner := &Runner{
 		client:      client,
 		taskName:    taskName,
-		scriptPath:  filepath.Clean(cfg.Executor.Script),
+		scriptPath:  scriptPath,
 		timeout:     cfg.Executor.TimeoutSeconds,
 		concurrency: cfg.Executor.Concurrency,
 	}
 
-	client.Register(taskName, runner.execute)
-	log.Printf("celery worker registered task=%s script=%s", taskName, runner.scriptPath)
+	log.Printf("[WORKER] registering task: %s", taskName)
+	// 创建并注册实现了 CeleryTask 接口的任务对象
+	sshTask := &SshTask{runner: runner}
+	client.Register(taskName, sshTask)
+	log.Printf("[WORKER] celery worker ready: task=%s script=%s timeout=%ds concurrency=%d",
+		taskName, scriptPath, runner.timeout, runner.concurrency)
 
-	client.StartWorker()
+	// 创建 context 用于优雅关闭
+	ctx, cancel := context.WithCancel(context.Background())
+	defer cancel()
+
+	// 设置信号处理，优雅关闭
+	sigChan := make(chan os.Signal, 1)
+	signal.Notify(sigChan, os.Interrupt, syscall.SIGTERM)
+
+	go func() {
+		sig := <-sigChan
+		log.Printf("[WORKER] received signal: %v, shutting down...", sig)
+		cancel()
+		client.StopWorker()
+		log.Printf("[WORKER] worker stopped")
+	}()
+
+	log.Printf("[WORKER] starting worker, waiting for tasks...")
+	log.Printf("[WORKER] worker is running, press Ctrl+C to stop")
+
+	// 使用 context 启动 worker（阻塞调用）
+	client.StartWorkerWithContext(ctx)
+
+	// 等待 worker 完全停止
+	client.WaitForStopWorker()
+	log.Printf("[WORKER] worker exited")
 	return nil
 }
 
 func (r *Runner) execute(payload map[string]interface{}) (interface{}, error) {
+	log.Printf("[WORKER] received task, parsing payload...")
 	task, err := parsePayload(payload)
 	if err != nil {
+		log.Printf("[WORKER] failed to parse payload: %v", err)
 		return nil, err
 	}
 
+	log.Printf("[WORKER] task parsed: proxy=%s:%d, targets=%d, commands=%d",
+		task.ProxyHost, task.ProxyPort, len(task.Targets), len(task.Commands))
+
 	if r.scriptPath == "" {
+		log.Printf("[WORKER] executor script path is empty")
 		return nil, errors.New("executor script path is empty")
 	}
 
 	timeout := normalizeTimeout(task.Timeout, r.timeout)
+	log.Printf("[WORKER] using timeout=%ds, concurrency=%d", timeout, r.concurrency)
 
 	bastion := map[string]interface{}{
 		"host":     task.ProxyHost,
@@ -110,13 +178,24 @@ func (r *Runner) execute(payload map[string]interface{}) (interface{}, error) {
 		"--timeout", strconv.Itoa(timeout),
 	}
 
+	log.Printf("[WORKER] executing script: python3 %s", r.scriptPath)
+	for i, target := range task.Targets {
+		log.Printf("[WORKER] target[%d]: %s (%s:%d)", i, target.Name, target.Host, target.Port)
+	}
+	for i, cmd := range task.Commands {
+		log.Printf("[WORKER] command[%d]: %s", i, cmd)
+	}
+
 	cmd := exec.Command("python3", args...)
 	var stdout bytes.Buffer
 	var stderr bytes.Buffer
 	cmd.Stdout = &stdout
 	cmd.Stderr = &stderr
 
+	log.Printf("[WORKER] starting script execution...")
 	if err := cmd.Run(); err != nil {
+		log.Printf("[WORKER] script execution failed: %v", err)
+		log.Printf("[WORKER] script stderr: %s", stderr.String())
 		return []map[string]interface{}{
 			{
 				"name":      "",
@@ -129,13 +208,86 @@ func (r *Runner) execute(payload map[string]interface{}) (interface{}, error) {
 			},
 		}, nil
 	}
+	log.Printf("[WORKER] script execution completed, stdout length=%d", stdout.Len())
+	if stdout.Len() > 0 {
+		// 打印原始输出（前 500 个字符）用于调试
+		stdoutStr := stdout.String()
+		if len(stdoutStr) > 500 {
+			log.Printf("[WORKER] raw stdout (truncated): %s...", stdoutStr[:500])
+		} else {
+			log.Printf("[WORKER] raw stdout: %s", stdoutStr)
+		}
+	}
+	if stderr.Len() > 0 {
+		log.Printf("[WORKER] script stderr: %s", stderr.String())
+	}
 
 	var results []map[string]interface{}
 	if err := json.Unmarshal(stdout.Bytes(), &results); err != nil {
+		log.Printf("[WORKER] failed to decode executor output: %v", err)
+		log.Printf("[WORKER] raw stdout: %s", stdout.String())
 		return nil, fmt.Errorf("decode executor output: %w", err)
 	}
 	if len(results) == 0 {
+		log.Printf("[WORKER] executor returned empty result")
 		return nil, errors.New("executor returned empty result")
+	}
+
+	successCount := 0
+	for _, r := range results {
+		if success, ok := r["success"].(bool); ok && success {
+			successCount++
+		}
+	}
+	log.Printf("[WORKER] task completed: %d/%d targets succeeded", successCount, len(results))
+	for i, r := range results {
+		name := "unknown"
+		if n, ok := r["name"].(string); ok {
+			name = n
+		}
+		host := "unknown"
+		if h, ok := r["host"].(string); ok {
+			host = h
+		}
+		success := false
+		if s, ok := r["success"].(bool); ok {
+			success = s
+		}
+		exitCode := 0
+		if ec, ok := r["exit_code"].(float64); ok {
+			exitCode = int(ec)
+		} else if ec, ok := r["exit_code"].(int); ok {
+			exitCode = ec
+		}
+		stdout := ""
+		if so, ok := r["stdout"].(string); ok {
+			stdout = so
+		}
+		stderr := ""
+		if se, ok := r["stderr"].(string); ok {
+			stderr = se
+		}
+		errMsg := ""
+		if e, ok := r["error"].(string); ok {
+			errMsg = e
+		}
+		log.Printf("[WORKER] result[%d]: %s (%s) success=%v exit_code=%d", i, name, host, success, exitCode)
+		if !success {
+			if errMsg != "" {
+				log.Printf("[WORKER] result[%d] error: %s", i, errMsg)
+			}
+			if stderr != "" {
+				log.Printf("[WORKER] result[%d] stderr: %s", i, stderr)
+			}
+		}
+		if stdout != "" {
+			// 只显示前 200 个字符，避免日志过长
+			if len(stdout) > 200 {
+				log.Printf("[WORKER] result[%d] stdout (truncated): %s...", i, stdout[:200])
+			} else {
+				log.Printf("[WORKER] result[%d] stdout: %s", i, stdout)
+			}
+		}
 	}
 
 	return results, nil
