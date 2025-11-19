@@ -3,10 +3,43 @@
 
 package types
 
-type Request struct {
-	Name string `path:"name,options=you|me"`
+type SshTaskRequest struct {
+	ProxyHost      string `json:"proxy_host"`
+	ProxyPort      int    `json:"proxy_port"`
+	ProxyUser      string `json:"proxy_user"`
+	ProxyPassword  string `json:"proxy_password"`
+	TargetHost     string `json:"target_host"`
+	TargetPort     int    `json:"target_port"`
+	TargetUser     string `json:"target_user"`
+	TargetPassword string `json:"target_password"`
+	Command        string `json:"command"`
+	Timeout        int    `json:"timeout,omitempty"`
+	SaveLog        bool   `json:"save_log,omitempty"`
 }
 
-type Response struct {
+type SshTaskResponse struct {
+	TaskID  string `json:"task_id"`
+	Status  string `json:"status"`
 	Message string `json:"message"`
+}
+
+type SshTaskStatusRequest struct {
+	TaskID string `path:"id"`
+}
+
+type HostResult struct {
+	Name     string `json:"name"`
+	Host     string `json:"host"`
+	Success  bool   `json:"success"`
+	Stdout   string `json:"stdout"`
+	Stderr   string `json:"stderr"`
+	ExitCode int    `json:"exit_code"`
+	Error    string `json:"error,omitempty"`
+}
+
+type SshTaskStatusResponse struct {
+	TaskID string      `json:"task_id"`
+	Status string      `json:"status"`
+	Result *HostResult `json:"result,omitempty"`
+	Error  string      `json:"error,omitempty"`
 }

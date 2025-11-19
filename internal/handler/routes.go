@@ -15,9 +15,14 @@ func RegisterHandlers(server *rest.Server, serverCtx *svc.ServiceContext) {
 	server.AddRoutes(
 		[]rest.Route{
 			{
+				Method:  http.MethodPost,
+				Path:    "/api/ssh/task",
+				Handler: ExecuteSshTaskHandler(serverCtx),
+			},
+			{
 				Method:  http.MethodGet,
-				Path:    "/from/:name",
-				Handler: GocereryHandler(serverCtx),
+				Path:    "/api/ssh/task/:id",
+				Handler: QuerySshTaskHandler(serverCtx),
 			},
 		},
 	)

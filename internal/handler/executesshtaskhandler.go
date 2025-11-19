@@ -12,16 +12,16 @@ import (
 	"gocerery/internal/types"
 )
 
-func GocereryHandler(svcCtx *svc.ServiceContext) http.HandlerFunc {
+func ExecuteSshTaskHandler(svcCtx *svc.ServiceContext) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
-		var req types.Request
+		var req types.SshTaskRequest
 		if err := httpx.Parse(r, &req); err != nil {
 			httpx.ErrorCtx(r.Context(), w, err)
 			return
 		}
 
-		l := logic.NewGocereryLogic(r.Context(), svcCtx)
-		resp, err := l.Gocerery(&req)
+		l := logic.NewExecuteSshTaskLogic(r.Context(), svcCtx)
+		resp, err := l.ExecuteSshTask(&req)
 		if err != nil {
 			httpx.ErrorCtx(r.Context(), w, err)
 		} else {

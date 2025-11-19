@@ -1,3 +1,33 @@
 Name: gocerery-api
 Host: 0.0.0.0
 Port: 8888
+
+# 跳板机配置
+Bastion:
+  Host: 198.168.110.130
+  Port: 22
+  User: eqt
+  Password: eqt
+
+Targets:
+  - Name: thin1
+    Host: 198.168.110.131
+    Port: 22
+    User: eqt
+    Password: eqt
+  - Name: thin2
+    Host: 198.168.110.132
+    Port: 22
+    User: eqt
+    Password: eqt
+
+Executor:
+  Script: ./scripts/ssh_executor.py
+  Concurrency: 3
+  TimeoutSeconds: 120
+
+Celery:
+  Broker: redis://127.0.0.1:6379/0
+  Backend: redis://127.0.0.1:6379/0
+  TaskName: tasks.execute_ssh
+  Workers: 2
