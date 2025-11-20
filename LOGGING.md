@@ -7,8 +7,8 @@
 编辑 `etc/gocerery-api.yaml`：
 
 ```yaml
-Log:
-  ServiceName: gocerery
+WorkerLog:
+  ServiceName: gocerery-worker
   Mode: file          # file: 文件模式, console: 控制台模式
   Path: logs          # 日志文件路径
   Level: info         # debug, info, error
@@ -61,15 +61,15 @@ grep "task_id" logs/*.log
 ### 2.1 配置文件 (`etc/gocerery-api.yaml`)
 
 ```yaml
-# 日志配置
-Log:
-  ServiceName: gocerery          # 服务名称（用于日志文件名）
-  Mode: file                     # 日志模式：file（文件）、console（控制台）、volume（卷）
-  Path: logs                      # 日志文件路径（Mode=file 时生效）
-  Level: info                     # 日志级别：debug, info, error
-  Compress: true                  # 是否压缩日志文件
-  KeepDays: 7                     # 日志保留天数
-  StackCooldownMillis: 100        # 堆栈冷却时间（毫秒）
+# Worker 日志配置
+WorkerLog:
+  ServiceName: gocerery-worker          # 服务名称（用于日志文件名）
+  Mode: file                            # 日志模式：file（文件）、console（控制台）、volume（卷）
+  Path: logs                            # 日志文件路径（Mode=file 时生效）
+  Level: info                           # 日志级别：debug, info, error
+  Compress: true                        # 是否压缩日志文件
+  KeepDays: 7                           # 日志保留天数
+  StackCooldownMillis: 100              # 堆栈冷却时间（毫秒）
 ```
 
 ### 2.2 日志级别说明
@@ -229,8 +229,8 @@ Log:
 
 Python 脚本的日志级别通过命令行参数传递，Worker 会自动根据配置传递：
 
-- 如果配置中 `Log.Level = "debug"`，Python 脚本会使用 `DEBUG` 级别
-- 如果配置中 `Log.Level = "info"`，Python 脚本会使用 `INFO` 级别
+- 如果配置中 `WorkerLog.Level = "debug"`，Python 脚本会使用 `DEBUG` 级别
+- 如果配置中 `WorkerLog.Level = "info"`，Python 脚本会使用 `INFO` 级别
 
 ### 6.3 启用 Paramiko 调试日志
 
@@ -306,7 +306,7 @@ filebeat.inputs:
 
 ### 9.1 启用详细日志
 
-1. 修改配置文件 `Log.Level = "debug"`
+1. 修改配置文件 `WorkerLog.Level = "debug"`
 2. 重启 Worker 和 API Server
 3. 查看日志文件获取详细信息
 
@@ -354,8 +354,8 @@ python3 scripts/ssh_executor.py \
 
 **解决方案**：
 1. 检查日志目录权限：`chmod 755 logs`
-2. 检查配置文件中的 `Log.Path` 是否正确
-3. 检查 `Log.Mode` 是否为 `file`
+2. 检查配置文件中的 `WorkerLog.Path` 是否正确
+3. 检查 `WorkerLog.Mode` 是否为 `file`
 
 ### 10.2 日志文件过大
 
@@ -371,7 +371,7 @@ python3 scripts/ssh_executor.py \
 **问题**：需要更详细的调试信息
 
 **解决方案**：
-1. 设置 `Log.Level = "debug"`
+1. 设置 `WorkerLog.Level = "debug"`
 2. 在 Python 脚本中启用 Paramiko DEBUG 日志
 3. 查看 Worker 日志中的详细输出
 

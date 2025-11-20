@@ -8,11 +8,11 @@ import "github.com/zeromicro/go-zero/rest"
 // 配置文件结构体
 type Config struct {
 	rest.RestConf
-	Bastion  BastionConfig  `json:"Bastion" yaml:"Bastion" mapstructure:"Bastion"`
-	Targets  []TargetConfig `json:"Targets" yaml:"Targets" mapstructure:"Targets"`
-	Executor ExecutorConfig `json:"Executor" yaml:"Executor" mapstructure:"Executor"`
-	Celery   CeleryConfig   `json:"Celery" yaml:"Celery" mapstructure:"Celery"`
-	Log      LogConfig      `json:"Log" yaml:"Log" mapstructure:"Log"` // 日志配置
+	Bastion   BastionConfig  `json:"Bastion" yaml:"Bastion" mapstructure:"Bastion"`
+	Targets   []TargetConfig `json:"Targets" yaml:"Targets" mapstructure:"Targets"`
+	Executor  ExecutorConfig `json:"Executor" yaml:"Executor" mapstructure:"Executor"`
+	Celery    CeleryConfig   `json:"Celery" yaml:"Celery" mapstructure:"Celery"`
+	WorkerLog LogConfig      `json:"WorkerLog" yaml:"WorkerLog" mapstructure:"WorkerLog"` // Worker 日志配置
 }
 
 // 跳板机配置

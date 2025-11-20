@@ -80,7 +80,7 @@ func (t *UploadTask) RunTask() (interface{}, error) {
 
 func Run(cfg *config.Config) error {
 	// 初始化日志系统
-	if err := logger.InitLogger(&cfg.Log); err != nil {
+	if err := logger.InitLogger(&cfg.WorkerLog); err != nil {
 		return fmt.Errorf("init logger: %w", err)
 	}
 
@@ -231,12 +231,12 @@ func (r *Runner) execute(payload map[string]interface{}) (interface{}, error) {
 
 	// 构建日志参数
 	logLevel := "INFO"
-	if r.cfg != nil && r.cfg.Log.Level != "" {
-		logLevel = r.cfg.Log.Level
+	if r.cfg != nil && r.cfg.WorkerLog.Level != "" {
+		logLevel = r.cfg.WorkerLog.Level
 	}
 	logFile := ""
-	if r.cfg != nil && r.cfg.Log.Mode == "file" && r.cfg.Log.Path != "" {
-		logFile = filepath.Join(r.cfg.Log.Path, "ssh_executor.log")
+	if r.cfg != nil && r.cfg.WorkerLog.Mode == "file" && r.cfg.WorkerLog.Path != "" {
+		logFile = filepath.Join(r.cfg.WorkerLog.Path, "ssh_executor.log")
 	}
 
 	args := []string{
@@ -447,12 +447,12 @@ func (r *Runner) executeUpload(payload map[string]interface{}) (interface{}, err
 
 	// 构建日志参数
 	logLevel := "INFO"
-	if r.cfg != nil && r.cfg.Log.Level != "" {
-		logLevel = r.cfg.Log.Level
+	if r.cfg != nil && r.cfg.WorkerLog.Level != "" {
+		logLevel = r.cfg.WorkerLog.Level
 	}
 	logFile := ""
-	if r.cfg != nil && r.cfg.Log.Mode == "file" && r.cfg.Log.Path != "" {
-		logFile = filepath.Join(r.cfg.Log.Path, "ssh_uploader.log")
+	if r.cfg != nil && r.cfg.WorkerLog.Mode == "file" && r.cfg.WorkerLog.Path != "" {
+		logFile = filepath.Join(r.cfg.WorkerLog.Path, "ssh_uploader.log")
 	}
 
 	args := []string{
