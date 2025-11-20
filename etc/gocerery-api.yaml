@@ -33,3 +33,13 @@ Celery:
   TaskName: tasks.execute_ssh
   UploadTaskName: tasks.upload_file
   Workers: 2
+
+# 日志配置
+Log:
+  ServiceName: gocerery
+  Mode: file                    # file: 文件模式, console: 控制台模式, volume: 卷模式
+  Path: logs                    # 日志文件路径（Mode=file 时生效）
+  Level: info                   # debug, info, error
+  Compress: true                # 是否压缩日志文件
+  KeepDays: 7                   # 日志保留天数
+  StackCooldownMillis: 100      # 堆栈冷却时间（毫秒）

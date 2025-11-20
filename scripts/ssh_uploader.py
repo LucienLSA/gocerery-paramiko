@@ -6,6 +6,7 @@ The script uploads files from local directory to remote servers.
 
 import argparse
 import json
+import logging
 import os
 import queue
 import sys
@@ -13,6 +14,36 @@ import threading
 from typing import Any, Dict, List
 
 import paramiko
+
+# 配置日志
+def setup_logging(log_level: str = "INFO", log_file: str = None):
+    """设置日志配置"""
+    level = getattr(logging, log_level.upper(), logging.INFO)
+    
+    handlers = [logging.StreamHandler(sys.stderr)]  # 默认输出到 stderr（会被 Go 捕获）
+    
+    if log_file:
+        # 确保日志目录存在
+        log_dir = os.path.dirname(log_file)
+        if log_dir and not os.path.exists(log_dir):
+            os.makedirs(log_dir, exist_ok=True)
+        handlers.append(logging.FileHandler(log_file))
+    
+    logging.basicConfig(
+        level=level,
+        format='%(asctime)s [%(levelname)s] %(name)s: %(message)s',
+        datefmt='%Y-%m-%d %H:%M:%S',
+        handlers=handlers
+    )
+    
+    # 设置 Paramiko 日志级别（可选，用于调试）
+    paramiko_logger = logging.getLogger("paramiko")
+    paramiko_logger.setLevel(logging.WARNING)  # 默认只显示警告和错误
+    
+    return logging.getLogger(__name__)
+
+# 全局日志对象（在 main 中初始化）
+logger = None
 
 
 def build_result(target: Dict[str, Any]) -> Dict[str, Any]:
@@ -28,6 +59,9 @@ def build_result(target: Dict[str, Any]) -> Dict[str, Any]:
 
 def connect_via_bastion(bastion: Dict[str, Any], target: Dict[str, Any], timeout: int):
     """Connect to target server via bastion host."""
+    if logger:
+        logger.info(f"Connecting to bastion {bastion['host']}:{bastion.get('port', 22)}")
+    
     bastion_client = paramiko.SSHClient()
     bastion_client.set_missing_host_key_policy(paramiko.AutoAddPolicy())
     bastion_client.connect(
@@ -40,12 +74,17 @@ def connect_via_bastion(bastion: Dict[str, Any], target: Dict[str, Any], timeout
 
     transport = bastion_client.get_transport()
     if transport is None:
+        if logger:
+            logger.error("Unable to obtain bastion transport")
         raise RuntimeError("unable to obtain bastion transport")
 
     dest_addr = (target["host"], target.get("port", 22))
     local_addr = ("127.0.0.1", 0)
     channel = transport.open_channel("direct-tcpip", dest_addr, local_addr)
 
+    if logger:
+        logger.info(f"Opening channel to target {target['host']}:{target.get('port', 22)}")
+    
     target_client = paramiko.SSHClient()
     target_client.set_missing_host_key_policy(paramiko.AutoAddPolicy())
     target_client.connect(
@@ -57,6 +96,9 @@ def connect_via_bastion(bastion: Dict[str, Any], target: Dict[str, Any], timeout
         timeout=timeout,
     )
 
+    if logger:
+        logger.info(f"Successfully connected to target {target['host']}")
+    
     return bastion_client, target_client
 
 
@@ -73,14 +115,23 @@ def upload_files(
     target_client = None
     sftp = None
 
+    target_name = target.get("name", target.get("host", "unknown"))
+    
     try:
+        if logger:
+            logger.info(f"Starting file upload to {target_name} ({target.get('host')})")
+            logger.info(f"Local path: {local_path}, Remote path: {remote_path}")
+        
         bastion_client, target_client = connect_via_bastion(bastion, target, timeout)
         sftp = target_client.open_sftp()
 
         # 确保本地路径存在
         if not os.path.exists(local_path):
+            error_msg = f"local path does not exist: {local_path}"
             result["success"] = False
-            result["error"] = f"local path does not exist: {local_path}"
+            result["error"] = error_msg
+            if logger:
+                logger.error(f"Upload to {target_name} failed: {error_msg}")
             return result
 
         # 确保远程目录存在
@@ -133,11 +184,16 @@ def upload_files(
                     local_file = os.path.join(root, file)
                     remote_file = os.path.join(remote_dir, file).replace("\\", "/")
                     try:
+                        if logger:
+                            logger.debug(f"Uploading {local_file} to {remote_file} on {target_name}")
                         sftp.put(local_file, remote_file)
                         uploaded.append({"local": local_file, "remote": remote_file})
                     except Exception as e:
-                        failed.append({"local": local_file, "remote": remote_file, "error": str(e)})
+                        error_msg = str(e)
+                        failed.append({"local": local_file, "remote": remote_file, "error": error_msg})
                         result["success"] = False
+                        if logger:
+                            logger.warning(f"Failed to upload {local_file} to {target_name}: {error_msg}")
 
         result["uploaded_files"] = uploaded
         result["failed_files"] = failed
@@ -148,8 +204,11 @@ def upload_files(
                 result["error"] = f"{len(failed)} file(s) failed to upload"
 
     except Exception as exc:  # pylint: disable=broad-except
+        error_msg = f"{type(exc).__name__}: {exc}"
         result["success"] = False
-        result["error"] = f"{type(exc).__name__}: {exc}"
+        result["error"] = error_msg
+        if logger:
+            logger.error(f"Error uploading files to {target_name}: {error_msg}", exc_info=True)
     finally:
         if sftp:
             sftp.close()
@@ -157,6 +216,12 @@ def upload_files(
             target_client.close()
         if bastion_client:
             bastion_client.close()
+        if logger:
+            logger.debug(f"Closed connections for {target_name}")
+
+    if logger:
+        logger.info(f"File upload to {target_name} completed, success={result['success']}, "
+                   f"uploaded={len(result['uploaded_files'])}, failed={len(result['failed_files'])}")
 
     return result
 
@@ -181,6 +246,8 @@ def worker(
 
 
 def main() -> int:
+    global logger
+    
     parser = argparse.ArgumentParser(description="Upload files via bastion using Paramiko.")
     parser.add_argument("--bastion", required=True, help="JSON payload for bastion connection info.")
     parser.add_argument("--targets", required=True, help="JSON array of target servers.")
@@ -188,7 +255,13 @@ def main() -> int:
     parser.add_argument("--remote-path", required=True, help="Remote directory path on target servers.")
     parser.add_argument("--concurrency", type=int, default=1, help="Max number of concurrent target connections.")
     parser.add_argument("--timeout", type=int, default=120, help="Timeout per SSH operation in seconds.")
+    parser.add_argument("--log-level", default="INFO", choices=["DEBUG", "INFO", "WARNING", "ERROR"],
+                        help="Log level (default: INFO)")
+    parser.add_argument("--log-file", help="Log file path (optional)")
     args = parser.parse_args()
+
+    # 初始化日志
+    logger = setup_logging(args.log_level, args.log_file)
 
     bastion = json.loads(args.bastion)
     targets = json.loads(args.targets)

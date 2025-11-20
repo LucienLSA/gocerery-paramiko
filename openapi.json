@@ -1,241 +1,400 @@
 {
-  "swagger": "2.0",
-  "info": {
-    "title": "",
-    "version": ""
-  },
-  "schemes": [
-    "http",
-    "https"
-  ],
   "consumes": [
     "application/json"
   ],
   "produces": [
     "application/json"
   ],
+  "schemes": [
+    "https"
+  ],
+  "swagger": "2.0",
+  "info": {
+    "version": "1.0"
+  },
+  "basePath": "/",
   "paths": {
     "/api/ssh/task": {
       "post": {
-        "operationId": "ExecuteSshTask",
-        "responses": {
-          "200": {
-            "description": "A successful response.",
-            "schema": {
-              "$ref": "#/definitions/SshTaskResponse"
-            }
-          }
-        },
+        "consumes": [
+          "application/json"
+        ],
+        "produces": [
+          "application/json"
+        ],
+        "schemes": [
+          "https"
+        ],
+        "summary": "ExecuteSshTask",
+        "operationId": "executeSshTask",
         "parameters": [
           {
             "name": "body",
             "in": "body",
             "required": true,
             "schema": {
-              "$ref": "#/definitions/SshTaskRequest"
+              "type": "object",
+              "required": [
+                "proxy_host",
+                "proxy_port",
+                "proxy_user",
+                "proxy_password",
+                "targets",
+                "commands",
+                "timeout",
+                "save_log"
+              ],
+              "properties": {
+                "commands": {
+                  "type": "array",
+                  "items": {
+                    "type": "string"
+                  }
+                },
+                "proxy_host": {
+                  "type": "string"
+                },
+                "proxy_password": {
+                  "type": "string"
+                },
+                "proxy_port": {
+                  "type": "integer"
+                },
+                "proxy_user": {
+                  "type": "string"
+                },
+                "save_log": {
+                  "type": "boolean"
+                },
+                "targets": {
+                  "type": "array",
+                  "items": {
+                    "type": "object",
+                    "required": [
+                      "name",
+                      "host",
+                      "port",
+                      "user",
+                      "password"
+                    ],
+                    "properties": {
+                      "host": {
+                        "type": "string"
+                      },
+                      "name": {
+                        "type": "string"
+                      },
+                      "password": {
+                        "type": "string"
+                      },
+                      "port": {
+                        "type": "integer"
+                      },
+                      "user": {
+                        "type": "string"
+                      }
+                    }
+                  }
+                },
+                "timeout": {
+                  "type": "integer"
+                }
+              }
             }
           }
         ],
-        "tags": [
-          "gocerery-api"
-        ]
+        "responses": {
+          "200": {
+            "description": "",
+            "schema": {
+              "type": "object",
+              "properties": {
+                "message": {
+                  "type": "string"
+                },
+                "status": {
+                  "type": "string"
+                },
+                "task_id": {
+                  "type": "string"
+                }
+              }
+            }
+          }
+        }
       }
     },
     "/api/ssh/task/{id}": {
       "get": {
-        "operationId": "QuerySshTask",
-        "responses": {
-          "200": {
-            "description": "A successful response.",
-            "schema": {
-              "$ref": "#/definitions/SshTaskStatusResponse"
-            }
-          }
-        },
+        "produces": [
+          "application/json"
+        ],
+        "schemes": [
+          "https"
+        ],
+        "summary": "QuerySshTask",
+        "operationId": "querySshTask",
         "parameters": [
           {
+            "type": "string",
             "name": "id",
             "in": "path",
-            "required": true,
-            "type": "string"
+            "required": true
           }
         ],
-        "tags": [
-          "gocerery-api"
-        ]
+        "responses": {
+          "200": {
+            "description": "",
+            "schema": {
+              "type": "object",
+              "properties": {
+                "error": {
+                  "type": "string"
+                },
+                "results": {
+                  "type": "array",
+                  "items": {
+                    "type": "object",
+                    "required": [
+                      "name",
+                      "host",
+                      "success",
+                      "stdout",
+                      "stderr",
+                      "exit_code",
+                      "error"
+                    ],
+                    "properties": {
+                      "error": {
+                        "type": "string"
+                      },
+                      "exit_code": {
+                        "type": "integer"
+                      },
+                      "host": {
+                        "type": "string"
+                      },
+                      "name": {
+                        "type": "string"
+                      },
+                      "stderr": {
+                        "type": "string"
+                      },
+                      "stdout": {
+                        "type": "string"
+                      },
+                      "success": {
+                        "type": "boolean"
+                      }
+                    }
+                  }
+                },
+                "status": {
+                  "type": "string"
+                },
+                "task_id": {
+                  "type": "string"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/upload/task": {
+      "post": {
+        "consumes": [
+          "application/json"
+        ],
+        "produces": [
+          "application/json"
+        ],
+        "schemes": [
+          "https"
+        ],
+        "summary": "ExecuteUploadTask",
+        "operationId": "executeUploadTask",
+        "parameters": [
+          {
+            "name": "body",
+            "in": "body",
+            "required": true,
+            "schema": {
+              "type": "object",
+              "required": [
+                "proxy_host",
+                "proxy_port",
+                "proxy_user",
+                "proxy_password",
+                "targets",
+                "local_path",
+                "remote_path",
+                "timeout",
+                "save_log"
+              ],
+              "properties": {
+                "local_path": {
+                  "type": "string"
+                },
+                "proxy_host": {
+                  "type": "string"
+                },
+                "proxy_password": {
+                  "type": "string"
+                },
+                "proxy_port": {
+                  "type": "integer"
+                },
+                "proxy_user": {
+                  "type": "string"
+                },
+                "remote_path": {
+                  "type": "string"
+                },
+                "save_log": {
+                  "type": "boolean"
+                },
+                "targets": {
+                  "type": "array",
+                  "items": {
+                    "type": "object",
+                    "required": [
+                      "name",
+                      "host",
+                      "port",
+                      "user",
+                      "password"
+                    ],
+                    "properties": {
+                      "host": {
+                        "type": "string"
+                      },
+                      "name": {
+                        "type": "string"
+                      },
+                      "password": {
+                        "type": "string"
+                      },
+                      "port": {
+                        "type": "integer"
+                      },
+                      "user": {
+                        "type": "string"
+                      }
+                    }
+                  }
+                },
+                "timeout": {
+                  "type": "integer"
+                }
+              }
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "",
+            "schema": {
+              "type": "object",
+              "properties": {
+                "message": {
+                  "type": "string"
+                },
+                "status": {
+                  "type": "string"
+                },
+                "task_id": {
+                  "type": "string"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/upload/task/{id}": {
+      "get": {
+        "produces": [
+          "application/json"
+        ],
+        "schemes": [
+          "https"
+        ],
+        "summary": "QueryUploadTask",
+        "operationId": "queryUploadTask",
+        "parameters": [
+          {
+            "type": "string",
+            "name": "id",
+            "in": "path",
+            "required": true
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "",
+            "schema": {
+              "type": "object",
+              "properties": {
+                "error": {
+                  "type": "string"
+                },
+                "results": {
+                  "type": "array",
+                  "items": {
+                    "type": "object",
+                    "required": [
+                      "name",
+                      "host",
+                      "success",
+                      "uploaded_files",
+                      "failed_files",
+                      "error"
+                    ],
+                    "properties": {
+                      "error": {
+                        "type": "string"
+                      },
+                      "failed_files": {
+                        "type": "array",
+                        "items": {
+                          "type": "string"
+                        }
+                      },
+                      "host": {
+                        "type": "string"
+                      },
+                      "name": {
+                        "type": "string"
+                      },
+                      "success": {
+                        "type": "boolean"
+                      },
+                      "uploaded_files": {
+                        "type": "array",
+                        "items": {
+                          "type": "string"
+                        }
+                      }
+                    }
+                  }
+                },
+                "status": {
+                  "type": "string"
+                },
+                "task_id": {
+                  "type": "string"
+                }
+              }
+            }
+          }
+        }
       }
     }
   },
-  "definitions": {
-    "HostResult": {
-      "type": "object",
-      "properties": {
-        "name": {
-          "type": "string"
-        },
-        "host": {
-          "type": "string"
-        },
-        "success": {
-          "type": "boolean",
-          "format": "boolean"
-        },
-        "stdout": {
-          "type": "string"
-        },
-        "stderr": {
-          "type": "string"
-        },
-        "exit_code": {
-          "type": "integer",
-          "format": "int32"
-        },
-        "error": {
-          "type": "string"
-        }
-      },
-      "title": "HostResult",
-      "required": [
-        "name",
-        "host",
-        "success",
-        "stdout",
-        "stderr",
-        "exit_code"
-      ]
-    },
-    "SshTaskRequest": {
-      "type": "object",
-      "properties": {
-        "proxy_host": {
-          "type": "string"
-        },
-        "proxy_port": {
-          "type": "integer",
-          "format": "int32"
-        },
-        "proxy_user": {
-          "type": "string"
-        },
-        "proxy_password": {
-          "type": "string"
-        },
-        "targets": {
-          "type": "array",
-          "items": {
-            "$ref": "#/definitions/TargetCredential"
-          }
-        },
-        "commands": {
-          "type": "array",
-          "items": {
-            "type": "string"
-          }
-        },
-        "timeout": {
-          "type": "integer",
-          "format": "int32"
-        },
-        "save_log": {
-          "type": "boolean",
-          "format": "boolean"
-        }
-      },
-      "title": "SshTaskRequest",
-      "required": [
-        "proxy_host",
-        "proxy_port",
-        "proxy_user",
-        "proxy_password",
-        "targets",
-        "commands"
-      ]
-    },
-    "SshTaskResponse": {
-      "type": "object",
-      "properties": {
-        "task_id": {
-          "type": "string"
-        },
-        "status": {
-          "type": "string"
-        },
-        "message": {
-          "type": "string"
-        }
-      },
-      "title": "SshTaskResponse",
-      "required": [
-        "task_id",
-        "status",
-        "message"
-      ]
-    },
-    "SshTaskStatusRequest": {
-      "type": "object",
-      "title": "SshTaskStatusRequest"
-    },
-    "SshTaskStatusResponse": {
-      "type": "object",
-      "properties": {
-        "task_id": {
-          "type": "string"
-        },
-        "status": {
-          "type": "string"
-        },
-        "results": {
-          "type": "array",
-          "items": {
-            "$ref": "#/definitions/HostResult"
-          }
-        },
-        "error": {
-          "type": "string"
-        }
-      },
-      "title": "SshTaskStatusResponse",
-      "required": [
-        "task_id",
-        "status"
-      ]
-    },
-    "TargetCredential": {
-      "type": "object",
-      "properties": {
-        "name": {
-          "type": "string"
-        },
-        "host": {
-          "type": "string"
-        },
-        "port": {
-          "type": "integer",
-          "format": "int32"
-        },
-        "user": {
-          "type": "string"
-        },
-        "password": {
-          "type": "string"
-        }
-      },
-      "title": "TargetCredential",
-      "required": [
-        "name",
-        "host",
-        "port",
-        "user",
-        "password"
-      ]
-    }
-  },
-  "securityDefinitions": {
-    "apiKey": {
-      "type": "apiKey",
-      "description": "Enter JWT Bearer token **_only_**",
-      "name": "Authorization",
-      "in": "header"
-    }
-  }
+  "x-date": "2025-11-20 10:31:02",
+  "x-description": "This is a goctl generated swagger file.",
+  "x-github": "https://github.com/zeromicro/go-zero",
+  "x-go-zero-doc": "https://go-zero.dev/",
+  "x-goctl-version": "1.9.2"
 }

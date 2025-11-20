@@ -12,6 +12,7 @@ type Config struct {
 	Targets  []TargetConfig `json:"Targets" yaml:"Targets" mapstructure:"Targets"`
 	Executor ExecutorConfig `json:"Executor" yaml:"Executor" mapstructure:"Executor"`
 	Celery   CeleryConfig   `json:"Celery" yaml:"Celery" mapstructure:"Celery"`
+	Log      LogConfig      `json:"Log" yaml:"Log" mapstructure:"Log"` // 日志配置
 }
 
 // 跳板机配置
@@ -46,4 +47,15 @@ type CeleryConfig struct {
 	TaskName       string `json:"TaskName" yaml:"TaskName" mapstructure:"TaskName"`
 	UploadTaskName string `json:"UploadTaskName" yaml:"UploadTaskName" mapstructure:"UploadTaskName"` // 文件上传任务名称
 	Workers        int    `json:"Workers" yaml:"Workers" mapstructure:"Workers"`
+}
+
+// 日志配置
+type LogConfig struct {
+	ServiceName         string `json:"ServiceName" yaml:"ServiceName" mapstructure:"ServiceName"`                         // 服务名称
+	Mode                string `json:"Mode" yaml:"Mode" mapstructure:"Mode"`                                              // 日志模式：file, console, volume
+	Path                string `json:"Path" yaml:"Path" mapstructure:"Path"`                                              // 日志文件路径
+	Level               string `json:"Level" yaml:"Level" mapstructure:"Level"`                                           // 日志级别：debug, info, error
+	Compress            bool   `json:"Compress" yaml:"Compress" mapstructure:"Compress"`                                  // 是否压缩
+	KeepDays            int    `json:"KeepDays" yaml:"KeepDays" mapstructure:"KeepDays"`                                  // 保留天数
+	StackCooldownMillis int    `json:"StackCooldownMillis" yaml:"StackCooldownMillis" mapstructure:"StackCooldownMillis"` // 堆栈冷却时间
 }
