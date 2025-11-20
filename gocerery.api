@@ -1,14 +1,14 @@
 syntax = "v1"
 
 type SshTaskRequest {
-	ProxyHost     string              `json:"proxy_host"`
-	ProxyPort     int                 `json:"proxy_port"`
-	ProxyUser     string              `json:"proxy_user"`
-	ProxyPassword string              `json:"proxy_password"`
-	Targets       []TargetCredential  `json:"targets"`
-	Commands      []string            `json:"commands"`
-	Timeout       int                 `json:"timeout,omitempty"`
-	SaveLog       bool                `json:"save_log,omitempty"`
+	ProxyHost     string             `json:"proxy_host"`
+	ProxyPort     int                `json:"proxy_port"`
+	ProxyUser     string             `json:"proxy_user"`
+	ProxyPassword string             `json:"proxy_password"`
+	Targets       []TargetCredential `json:"targets"`
+	Commands      []string           `json:"commands"`
+	Timeout       int                `json:"timeout,omitempty"`
+	SaveLog       bool               `json:"save_log,omitempty"`
 }
 
 type TargetCredential {
@@ -46,11 +46,51 @@ type SshTaskStatusResponse {
 	Error   string       `json:"error,omitempty"`
 }
 
+type UploadTaskRequest {
+	ProxyHost     string             `json:"proxy_host"`
+	ProxyPort     int                `json:"proxy_port"`
+	ProxyUser     string             `json:"proxy_user"`
+	ProxyPassword string             `json:"proxy_password"`
+	Targets       []TargetCredential `json:"targets"`
+	LocalPath     string             `json:"local_path"`
+	RemotePath    string             `json:"remote_path"`
+	Timeout       int                `json:"timeout,omitempty"`
+	SaveLog       bool               `json:"save_log,omitempty"`
+}
+
+type UploadTaskResponse {
+	TaskID  string `json:"task_id"`
+	Status  string `json:"status"`
+	Message string `json:"message"`
+}
+
+type UploadResult {
+	Name          string   `json:"name"`
+	Host          string   `json:"host"`
+	Success       bool     `json:"success"`
+	UploadedFiles []string `json:"uploaded_files,omitempty"`
+	FailedFiles   []string `json:"failed_files,omitempty"`
+	Error         string   `json:"error,omitempty"`
+}
+
+type UploadTaskStatusResponse {
+	TaskID  string         `json:"task_id"`
+	Status  string         `json:"status"`
+	Results []UploadResult `json:"results,omitempty"`
+	Error   string         `json:"error,omitempty"`
+}
+
 service gocerery-api {
 	@handler ExecuteSshTask
 	post /api/ssh/task (SshTaskRequest) returns (SshTaskResponse)
 
 	@handler QuerySshTask
 	get /api/ssh/task/:id (SshTaskStatusRequest) returns (SshTaskStatusResponse)
+
+	@handler ExecuteUploadTask
+	post /api/upload/task (UploadTaskRequest) returns (UploadTaskResponse)
+
+	@handler QueryUploadTask
+	get /api/upload/task/:id (SshTaskStatusRequest) returns (UploadTaskStatusResponse)
 }
 

@@ -3,6 +3,16 @@
 
 package types
 
+type HostResult struct {
+	Name     string `json:"name"`
+	Host     string `json:"host"`
+	Success  bool   `json:"success"`
+	Stdout   string `json:"stdout"`
+	Stderr   string `json:"stderr"`
+	ExitCode int    `json:"exit_code"`
+	Error    string `json:"error,omitempty"`
+}
+
 type SshTaskRequest struct {
 	ProxyHost     string             `json:"proxy_host"`
 	ProxyPort     int                `json:"proxy_port"`
@@ -12,14 +22,6 @@ type SshTaskRequest struct {
 	Commands      []string           `json:"commands"`
 	Timeout       int                `json:"timeout,omitempty"`
 	SaveLog       bool               `json:"save_log,omitempty"`
-}
-
-type TargetCredential struct {
-	Name     string `json:"name"`
-	Host     string `json:"host"`
-	Port     int    `json:"port"`
-	User     string `json:"user"`
-	Password string `json:"password"`
 }
 
 type SshTaskResponse struct {
@@ -32,19 +34,51 @@ type SshTaskStatusRequest struct {
 	TaskID string `path:"id"`
 }
 
-type HostResult struct {
-	Name     string `json:"name"`
-	Host     string `json:"host"`
-	Success  bool   `json:"success"`
-	Stdout   string `json:"stdout"`
-	Stderr   string `json:"stderr"`
-	ExitCode int    `json:"exit_code"`
-	Error    string `json:"error,omitempty"`
-}
-
 type SshTaskStatusResponse struct {
 	TaskID  string       `json:"task_id"`
 	Status  string       `json:"status"`
 	Results []HostResult `json:"results,omitempty"`
 	Error   string       `json:"error,omitempty"`
+}
+
+type TargetCredential struct {
+	Name     string `json:"name"`
+	Host     string `json:"host"`
+	Port     int    `json:"port"`
+	User     string `json:"user"`
+	Password string `json:"password"`
+}
+
+type UploadResult struct {
+	Name          string   `json:"name"`
+	Host          string   `json:"host"`
+	Success       bool     `json:"success"`
+	UploadedFiles []string `json:"uploaded_files,omitempty"`
+	FailedFiles   []string `json:"failed_files,omitempty"`
+	Error         string   `json:"error,omitempty"`
+}
+
+type UploadTaskRequest struct {
+	ProxyHost     string             `json:"proxy_host"`
+	ProxyPort     int                `json:"proxy_port"`
+	ProxyUser     string             `json:"proxy_user"`
+	ProxyPassword string             `json:"proxy_password"`
+	Targets       []TargetCredential `json:"targets"`
+	LocalPath     string             `json:"local_path"`
+	RemotePath    string             `json:"remote_path"`
+	Timeout       int                `json:"timeout,omitempty"`
+	SaveLog       bool               `json:"save_log,omitempty"`
+}
+
+type UploadTaskResponse struct {
+	TaskID  string `json:"task_id"`
+	Status  string `json:"status"`
+	Message string `json:"message"`
+}
+
+type UploadTaskStatusResponse struct {
+	TaskID  string         `json:"task_id"`
+	Status  string         `json:"status"`
+	Results []UploadResult `json:"results,omitempty"`
+	Error   string         `json:"error,omitempty"`
 }

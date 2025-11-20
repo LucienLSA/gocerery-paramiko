@@ -23,6 +23,7 @@ Targets:
 
 Executor:
   Script: ./scripts/ssh_executor.py
+  UploadScript: ./scripts/ssh_uploader.py
   Concurrency: 3
   TimeoutSeconds: 120
 
@@ -30,4 +31,5 @@ Celery:
   Broker: redis://127.0.0.1:6379/0
   Backend: redis://127.0.0.1:6379/0
   TaskName: tasks.execute_ssh
+  UploadTaskName: tasks.upload_file
   Workers: 2

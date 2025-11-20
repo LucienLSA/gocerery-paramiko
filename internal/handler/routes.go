@@ -24,6 +24,16 @@ func RegisterHandlers(server *rest.Server, serverCtx *svc.ServiceContext) {
 				Path:    "/api/ssh/task/:id",
 				Handler: QuerySshTaskHandler(serverCtx),
 			},
+			{
+				Method:  http.MethodPost,
+				Path:    "/api/upload/task",
+				Handler: ExecuteUploadTaskHandler(serverCtx),
+			},
+			{
+				Method:  http.MethodGet,
+				Path:    "/api/upload/task/:id",
+				Handler: QueryUploadTaskHandler(serverCtx),
+			},
 		},
 	)
 }

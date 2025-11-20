@@ -34,14 +34,16 @@ type TargetConfig struct {
 // 任务执行器配置
 type ExecutorConfig struct {
 	Script         string `json:"Script" yaml:"Script" mapstructure:"Script"`
+	UploadScript   string `json:"UploadScript" yaml:"UploadScript" mapstructure:"UploadScript"`       // 文件上传脚本路径
 	Concurrency    int    `json:"Concurrency" yaml:"Concurrency" mapstructure:"Concurrency"`          // 并发数
 	TimeoutSeconds int    `json:"TimeoutSeconds" yaml:"TimeoutSeconds" mapstructure:"TimeoutSeconds"` // 超时时间
 }
 
 // Celery 配置
 type CeleryConfig struct {
-	Broker   string `json:"Broker" yaml:"Broker" mapstructure:"Broker"`
-	Backend  string `json:"Backend" yaml:"Backend" mapstructure:"Backend"`
-	TaskName string `json:"TaskName" yaml:"TaskName" mapstructure:"TaskName"`
-	Workers  int    `json:"Workers" yaml:"Workers" mapstructure:"Workers"`
+	Broker         string `json:"Broker" yaml:"Broker" mapstructure:"Broker"`
+	Backend        string `json:"Backend" yaml:"Backend" mapstructure:"Backend"`
+	TaskName       string `json:"TaskName" yaml:"TaskName" mapstructure:"TaskName"`
+	UploadTaskName string `json:"UploadTaskName" yaml:"UploadTaskName" mapstructure:"UploadTaskName"` // 文件上传任务名称
+	Workers        int    `json:"Workers" yaml:"Workers" mapstructure:"Workers"`
 }
