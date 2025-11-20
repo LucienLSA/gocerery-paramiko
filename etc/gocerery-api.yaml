@@ -1,25 +1,15 @@
 Name: gocerery-api
-Host: 0.0.0.0
-Port: 8888
+Host: ${REST_HOST:0.0.0.0}
+Port: ${REST_PORT:8888}
 
 # 跳板机配置
 Bastion:
-  Host: 198.168.110.130
-  Port: 22
-  User: eqt
-  Password: eqt
+  Host: ${BASTION_HOST:}
+  Port: ${BASTION_PORT:22}
+  User: ${BASTION_USER:}
+  Password: ${BASTION_PASSWORD:}
 
-Targets:
-  - Name: thin1
-    Host: 198.168.110.131
-    Port: 22
-    User: eqt
-    Password: eqt
-  - Name: thin2
-    Host: 198.168.110.132
-    Port: 22
-    User: eqt
-    Password: eqt
+Targets: []   # 推荐在 API 请求中动态传入，如需常量可同样使用环境变量占位符
 
 Executor:
   Script: ./scripts/ssh_executor.py
@@ -28,11 +18,11 @@ Executor:
   TimeoutSeconds: 120
 
 Celery:
-  Broker: redis://127.0.0.1:6379/0
-  Backend: redis://127.0.0.1:6379/0
-  TaskName: tasks.execute_ssh
-  UploadTaskName: tasks.upload_file
-  Workers: 2
+  Broker: ${CELERY_BROKER:redis://127.0.0.1:6379/0}
+  Backend: ${CELERY_BACKEND:redis://127.0.0.1:6379/0}
+  TaskName: ${CELERY_TASK_NAME:tasks.execute_ssh}
+  UploadTaskName: ${CELERY_UPLOAD_TASK_NAME:tasks.upload_file}
+  Workers: ${CELERY_WORKERS:2}
 
 # Worker 日志配置
 WorkerLog:

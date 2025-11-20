@@ -1,7 +1,7 @@
 package svc
 
 import (
-	"log"
+	"fmt"
 
 	"gocerery/internal/config"
 
@@ -14,7 +14,7 @@ type ServiceContext struct {
 	CeleryBackend *gocelery.RedisCeleryBackend
 }
 
-func NewServiceContext(c config.Config) *ServiceContext {
+func NewServiceContext(c config.Config) (*ServiceContext, error) {
 	ctx := &ServiceContext{
 		Config: c,
 	}
@@ -29,14 +29,14 @@ func NewServiceContext(c config.Config) *ServiceContext {
 
 		client, err := gocelery.NewCeleryClient(broker, backend, workers)
 		if err != nil {
-			log.Fatalf("failed to init celery client: %v", err)
+			return nil, fmt.Errorf("init celery client: %w", err)
 		}
 
 		ctx.CeleryClient = client
 		ctx.CeleryBackend = backend
 	}
 
-	return ctx
+	return ctx, nil
 }
 
 // Code scaffolded by goctl. Safe to edit.

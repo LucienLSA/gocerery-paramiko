@@ -11,6 +11,7 @@ import (
 	"os/signal"
 	"path/filepath"
 	"strconv"
+	"strings"
 	"sync"
 	"syscall"
 
@@ -232,7 +233,7 @@ func (r *Runner) execute(payload map[string]interface{}) (interface{}, error) {
 	// 构建日志参数
 	logLevel := "INFO"
 	if r.cfg != nil && r.cfg.WorkerLog.Level != "" {
-		logLevel = r.cfg.WorkerLog.Level
+		logLevel = strings.ToUpper(r.cfg.WorkerLog.Level)
 	}
 	logFile := ""
 	if r.cfg != nil && r.cfg.WorkerLog.Mode == "file" && r.cfg.WorkerLog.Path != "" {
@@ -276,17 +277,7 @@ func (r *Runner) execute(payload map[string]interface{}) (interface{}, error) {
 		logx.Errorw("[WORKER] script execution failed",
 			logx.Field("error", err),
 			logx.Field("stderr", stderr.String()))
-		return []map[string]interface{}{
-			{
-				"name":      "",
-				"host":      "",
-				"success":   false,
-				"stdout":    stdout.String(),
-				"stderr":    stderr.String(),
-				"exit_code": 1,
-				"error":     err.Error(),
-			},
-		}, nil
+		return nil, fmt.Errorf("executor script failed: %w", err)
 	}
 	logx.Infow("[WORKER] script execution completed", logx.Field("stdout_length", stdout.Len()))
 	if stdout.Len() > 0 {
@@ -448,7 +439,7 @@ func (r *Runner) executeUpload(payload map[string]interface{}) (interface{}, err
 	// 构建日志参数
 	logLevel := "INFO"
 	if r.cfg != nil && r.cfg.WorkerLog.Level != "" {
-		logLevel = r.cfg.WorkerLog.Level
+		logLevel = strings.ToUpper(r.cfg.WorkerLog.Level)
 	}
 	logFile := ""
 	if r.cfg != nil && r.cfg.WorkerLog.Mode == "file" && r.cfg.WorkerLog.Path != "" {
@@ -491,16 +482,7 @@ func (r *Runner) executeUpload(payload map[string]interface{}) (interface{}, err
 		logx.Errorw("[WORKER] upload script execution failed",
 			logx.Field("error", err),
 			logx.Field("stderr", stderr.String()))
-		return []map[string]interface{}{
-			{
-				"name":           "",
-				"host":           "",
-				"success":        false,
-				"uploaded_files": []string{},
-				"failed_files":   []string{},
-				"error":          err.Error(),
-			},
-		}, nil
+		return nil, fmt.Errorf("upload script failed: %w", err)
 	}
 	logx.Infow("[WORKER] upload script execution completed", logx.Field("stdout_length", stdout.Len()))
 	if stdout.Len() > 0 {

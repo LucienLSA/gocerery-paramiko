@@ -111,40 +111,51 @@ sudo systemctl start redis
 
 ```yaml
 Name: gocerery-api
-Host: 0.0.0.0
-Port: 8888
+Host: ${REST_HOST:0.0.0.0}
+Port: ${REST_PORT:8888}
 
 Bastion:
-  Host: bastion.example.com
-  Port: 22
-  User: bastion
-  Password: bastion-password
+  Host: ${BASTION_HOST:}
+  Port: ${BASTION_PORT:22}
+  User: ${BASTION_USER:}
+  Password: ${BASTION_PASSWORD:}
 
-Targets:
-  - Name: web-server
-    Host: 10.0.0.11
-    Port: 22
-    User: deploy
-    Password: deploy-password
+Targets: []   # 建议通过 API 动态传入，如需常量同样使用环境变量占位符
 
 Executor:
-  Script: ./scripts/ssh_executor.py      # 命令执行脚本
-  UploadScript: ./scripts/ssh_uploader.py # 文件上传脚本
-  Concurrency: 3                          # 最多同时连接的服务器数量
-  TimeoutSeconds: 120                     # 单次任务超时
+  Script: ./scripts/ssh_executor.py
+  UploadScript: ./scripts/ssh_uploader.py
+  Concurrency: 3
+  TimeoutSeconds: 120
 
 Celery:
-  Broker: redis://127.0.0.1:6379/0       # Celery Broker（Redis）
-  Backend: redis://127.0.0.1:6379/0      # Celery Backend（Redis）
-  TaskName: tasks.execute_ssh            # 命令执行任务名称
-  UploadTaskName: tasks.upload_file      # 文件上传任务名称
-  Workers: 2                              # Worker 并发数
+  Broker: ${CELERY_BROKER:redis://127.0.0.1:6379/0}
+  Backend: ${CELERY_BACKEND:redis://127.0.0.1:6379/0}
+  TaskName: ${CELERY_TASK_NAME:tasks.execute_ssh}
+  UploadTaskName: ${CELERY_UPLOAD_TASK_NAME:tasks.upload_file}
+  Workers: ${CELERY_WORKERS:2}
 ```
 
 > **提示**：
-> - 所有连接信息均采用用户名 + 密码认证；请根据实际情况修改。
+> - 所有敏感信息推荐通过环境变量注入（`${ENV:default}`）而非写死在仓库中。
 > - 配置文件中的 `Bastion` 和 `Targets` 是可选配置，也可以在 API 请求中动态指定。
-> - 如果请求中提供了 `proxy_host` 等信息，会优先使用请求中的配置。
+> - 如果请求中提供了 `proxy_*` 字段，会优先使用请求中的配置。
+
+#### 注入敏感信息（推荐 `.env`）
+
+创建项目根目录下的 `.env` 文件（可复制 `.env.example` 再修改），例如：
+
+```
+REST_HOST=0.0.0.0
+REST_PORT=8888
+BASTION_HOST=198.168.110.130
+BASTION_USER=eqt
+BASTION_PASSWORD=SuperSecret
+CELERY_BROKER=redis://redis.internal:6379/0
+CELERY_BACKEND=redis://redis.internal:6379/0
+```
+
+HTTP API 与 Worker 在启动时会自动加载 `.env`，无需将真实密码写入仓库或命令行。
 
 ### 快速执行步骤
 
