@@ -1,0 +1,241 @@
+{
+  "swagger": "2.0",
+  "info": {
+    "title": "",
+    "version": ""
+  },
+  "schemes": [
+    "http",
+    "https"
+  ],
+  "consumes": [
+    "application/json"
+  ],
+  "produces": [
+    "application/json"
+  ],
+  "paths": {
+    "/api/ssh/task": {
+      "post": {
+        "operationId": "ExecuteSshTask",
+        "responses": {
+          "200": {
+            "description": "A successful response.",
+            "schema": {
+              "$ref": "#/definitions/SshTaskResponse"
+            }
+          }
+        },
+        "parameters": [
+          {
+            "name": "body",
+            "in": "body",
+            "required": true,
+            "schema": {
+              "$ref": "#/definitions/SshTaskRequest"
+            }
+          }
+        ],
+        "tags": [
+          "gocerery-api"
+        ]
+      }
+    },
+    "/api/ssh/task/{id}": {
+      "get": {
+        "operationId": "QuerySshTask",
+        "responses": {
+          "200": {
+            "description": "A successful response.",
+            "schema": {
+              "$ref": "#/definitions/SshTaskStatusResponse"
+            }
+          }
+        },
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "type": "string"
+          }
+        ],
+        "tags": [
+          "gocerery-api"
+        ]
+      }
+    }
+  },
+  "definitions": {
+    "HostResult": {
+      "type": "object",
+      "properties": {
+        "name": {
+          "type": "string"
+        },
+        "host": {
+          "type": "string"
+        },
+        "success": {
+          "type": "boolean",
+          "format": "boolean"
+        },
+        "stdout": {
+          "type": "string"
+        },
+        "stderr": {
+          "type": "string"
+        },
+        "exit_code": {
+          "type": "integer",
+          "format": "int32"
+        },
+        "error": {
+          "type": "string"
+        }
+      },
+      "title": "HostResult",
+      "required": [
+        "name",
+        "host",
+        "success",
+        "stdout",
+        "stderr",
+        "exit_code"
+      ]
+    },
+    "SshTaskRequest": {
+      "type": "object",
+      "properties": {
+        "proxy_host": {
+          "type": "string"
+        },
+        "proxy_port": {
+          "type": "integer",
+          "format": "int32"
+        },
+        "proxy_user": {
+          "type": "string"
+        },
+        "proxy_password": {
+          "type": "string"
+        },
+        "targets": {
+          "type": "array",
+          "items": {
+            "$ref": "#/definitions/TargetCredential"
+          }
+        },
+        "commands": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "timeout": {
+          "type": "integer",
+          "format": "int32"
+        },
+        "save_log": {
+          "type": "boolean",
+          "format": "boolean"
+        }
+      },
+      "title": "SshTaskRequest",
+      "required": [
+        "proxy_host",
+        "proxy_port",
+        "proxy_user",
+        "proxy_password",
+        "targets",
+        "commands"
+      ]
+    },
+    "SshTaskResponse": {
+      "type": "object",
+      "properties": {
+        "task_id": {
+          "type": "string"
+        },
+        "status": {
+          "type": "string"
+        },
+        "message": {
+          "type": "string"
+        }
+      },
+      "title": "SshTaskResponse",
+      "required": [
+        "task_id",
+        "status",
+        "message"
+      ]
+    },
+    "SshTaskStatusRequest": {
+      "type": "object",
+      "title": "SshTaskStatusRequest"
+    },
+    "SshTaskStatusResponse": {
+      "type": "object",
+      "properties": {
+        "task_id": {
+          "type": "string"
+        },
+        "status": {
+          "type": "string"
+        },
+        "results": {
+          "type": "array",
+          "items": {
+            "$ref": "#/definitions/HostResult"
+          }
+        },
+        "error": {
+          "type": "string"
+        }
+      },
+      "title": "SshTaskStatusResponse",
+      "required": [
+        "task_id",
+        "status"
+      ]
+    },
+    "TargetCredential": {
+      "type": "object",
+      "properties": {
+        "name": {
+          "type": "string"
+        },
+        "host": {
+          "type": "string"
+        },
+        "port": {
+          "type": "integer",
+          "format": "int32"
+        },
+        "user": {
+          "type": "string"
+        },
+        "password": {
+          "type": "string"
+        }
+      },
+      "title": "TargetCredential",
+      "required": [
+        "name",
+        "host",
+        "port",
+        "user",
+        "password"
+      ]
+    }
+  },
+  "securityDefinitions": {
+    "apiKey": {
+      "type": "apiKey",
+      "description": "Enter JWT Bearer token **_only_**",
+      "name": "Authorization",
+      "in": "header"
+    }
+  }
+}

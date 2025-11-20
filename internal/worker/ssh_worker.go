@@ -78,10 +78,13 @@ func (t *UploadTask) RunTask() (interface{}, error) {
 
 func Run(cfg *config.Config) error {
 	log.Printf("[WORKER] initializing Celery worker...")
+	log.Printf("[WORKER] initializing Celery worker...")
 	if cfg.Celery.Broker == "" || cfg.Celery.Backend == "" {
 		return errors.New("celery broker/backend not configured")
 	}
 
+	log.Printf("[WORKER] connecting to broker: %s", cfg.Celery.Broker)
+	log.Printf("[WORKER] connecting to backend: %s", cfg.Celery.Backend)
 	log.Printf("[WORKER] connecting to broker: %s", cfg.Celery.Broker)
 	log.Printf("[WORKER] connecting to backend: %s", cfg.Celery.Backend)
 	broker := gocelery.NewRedisCeleryBroker(cfg.Celery.Broker)
@@ -91,6 +94,7 @@ func Run(cfg *config.Config) error {
 		workers = 1
 	}
 
+	log.Printf("[WORKER] creating Celery client with %d workers...", workers)
 	log.Printf("[WORKER] creating Celery client with %d workers...", workers)
 	client, err := gocelery.NewCeleryClient(broker, backend, workers)
 	if err != nil {
@@ -165,8 +169,10 @@ func Run(cfg *config.Config) error {
 
 func (r *Runner) execute(payload map[string]interface{}) (interface{}, error) {
 	log.Printf("[WORKER] received task, parsing payload...")
+	log.Printf("[WORKER] received task, parsing payload...")
 	task, err := parsePayload(payload)
 	if err != nil {
+		log.Printf("[WORKER] failed to parse payload: %v", err)
 		log.Printf("[WORKER] failed to parse payload: %v", err)
 		return nil, err
 	}
@@ -174,12 +180,17 @@ func (r *Runner) execute(payload map[string]interface{}) (interface{}, error) {
 	log.Printf("[WORKER] task parsed: proxy=%s:%d, targets=%d, commands=%d",
 		task.ProxyHost, task.ProxyPort, len(task.Targets), len(task.Commands))
 
+	log.Printf("[WORKER] task parsed: proxy=%s:%d, targets=%d, commands=%d",
+		task.ProxyHost, task.ProxyPort, len(task.Targets), len(task.Commands))
+
 	if r.scriptPath == "" {
+		log.Printf("[WORKER] executor script path is empty")
 		log.Printf("[WORKER] executor script path is empty")
 		return nil, errors.New("executor script path is empty")
 	}
 
 	timeout := normalizeTimeout(task.Timeout, r.timeout)
+	log.Printf("[WORKER] using timeout=%ds, concurrency=%d", timeout, r.concurrency)
 	log.Printf("[WORKER] using timeout=%ds, concurrency=%d", timeout, r.concurrency)
 
 	bastion := map[string]interface{}{
@@ -228,6 +239,14 @@ func (r *Runner) execute(payload map[string]interface{}) (interface{}, error) {
 		log.Printf("[WORKER] command[%d]: %s", i, cmd)
 	}
 
+	log.Printf("[WORKER] executing script: python3 %s", r.scriptPath)
+	for i, target := range task.Targets {
+		log.Printf("[WORKER] target[%d]: %s (%s:%d)", i, target.Name, target.Host, target.Port)
+	}
+	for i, cmd := range task.Commands {
+		log.Printf("[WORKER] command[%d]: %s", i, cmd)
+	}
+
 	cmd := exec.Command("python3", args...)
 	var stdout bytes.Buffer
 	var stderr bytes.Buffer
@@ -235,7 +254,10 @@ func (r *Runner) execute(payload map[string]interface{}) (interface{}, error) {
 	cmd.Stderr = &stderr
 
 	log.Printf("[WORKER] starting script execution...")
+	log.Printf("[WORKER] starting script execution...")
 	if err := cmd.Run(); err != nil {
+		log.Printf("[WORKER] script execution failed: %v", err)
+		log.Printf("[WORKER] script stderr: %s", stderr.String())
 		log.Printf("[WORKER] script execution failed: %v", err)
 		log.Printf("[WORKER] script stderr: %s", stderr.String())
 		return []map[string]interface{}{
@@ -263,14 +285,30 @@ func (r *Runner) execute(payload map[string]interface{}) (interface{}, error) {
 	if stderr.Len() > 0 {
 		log.Printf("[WORKER] script stderr: %s", stderr.String())
 	}
+	log.Printf("[WORKER] script execution completed, stdout length=%d", stdout.Len())
+	if stdout.Len() > 0 {
+		// 打印原始输出（前 500 个字符）用于调试
+		stdoutStr := stdout.String()
+		if len(stdoutStr) > 500 {
+			log.Printf("[WORKER] raw stdout (truncated): %s...", stdoutStr[:500])
+		} else {
+			log.Printf("[WORKER] raw stdout: %s", stdoutStr)
+		}
+	}
+	if stderr.Len() > 0 {
+		log.Printf("[WORKER] script stderr: %s", stderr.String())
+	}
 
 	var results []map[string]interface{}
 	if err := json.Unmarshal(stdout.Bytes(), &results); err != nil {
 		log.Printf("[WORKER] failed to decode executor output: %v", err)
 		log.Printf("[WORKER] raw stdout: %s", stdout.String())
+		log.Printf("[WORKER] failed to decode executor output: %v", err)
+		log.Printf("[WORKER] raw stdout: %s", stdout.String())
 		return nil, fmt.Errorf("decode executor output: %w", err)
 	}
 	if len(results) == 0 {
+		log.Printf("[WORKER] executor returned empty result")
 		log.Printf("[WORKER] executor returned empty result")
 		return nil, errors.New("executor returned empty result")
 	}
